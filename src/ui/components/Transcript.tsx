@@ -21,17 +21,23 @@ export function Transcript({ items }: TranscriptProps) {
           case "user":
             return (
               <Box key={i} marginTop={1}>
-                <Text color={ui.flame}>{"▌ "}</Text>
-                <Text color={ui.white}>{item.text}</Text>
+                <Box flexShrink={0}>
+                  <Text color={ui.flame}>{"▌ "}</Text>
+                </Box>
+                <Box flexGrow={1}>
+                  <Text color={ui.white}>{item.text}</Text>
+                </Box>
               </Box>
             );
           case "assistant":
             return (
               <Box key={i} marginTop={1}>
-                <Text>
+                <Box flexShrink={0}>
                   <Text color={ui.flame}>{"● "}</Text>
+                </Box>
+                <Box flexGrow={1}>
                   <Text color={ui.white}>{item.text}</Text>
-                </Text>
+                </Box>
               </Box>
             );
           case "tool":
@@ -47,15 +53,23 @@ export function Transcript({ items }: TranscriptProps) {
           case "error":
             return (
               <Box key={i} marginTop={1}>
-                <Text color={ui.flame}>{"✗ "}</Text>
-                <Text color={ui.white}>{item.message}</Text>
+                <Box flexShrink={0}>
+                  <Text color={ui.flame}>{"✗ "}</Text>
+                </Box>
+                <Box flexGrow={1}>
+                  <Text color={ui.white}>{item.message}</Text>
+                </Box>
               </Box>
             );
           case "info":
             return (
               <Box key={i} marginTop={1}>
-                <Text color={ui.grey}>{"› "}</Text>
-                <Text color={ui.grey}>{item.text}</Text>
+                <Box flexShrink={0}>
+                  <Text color={ui.grey}>{"› "}</Text>
+                </Box>
+                <Box flexGrow={1}>
+                  <Text color={ui.grey}>{item.text}</Text>
+                </Box>
               </Box>
             );
         }
