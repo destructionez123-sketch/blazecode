@@ -4,3 +4,4 @@ dist/
 .DS_Store
 auth.json
 .env
+.superpowers/
