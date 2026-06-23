@@ -25,7 +25,8 @@ export function Header({
   const wordmark = gradientChars("blaze");
   const tokensIn = formatTokens(inputTokens);
   const tokensOut = formatTokens(outputTokens);
-  const ctx = formatTokens(inputTokens + outputTokens);
+  // Hide the tagline on narrower terminals so the header never wraps.
+  const showTagline = width >= 76;
 
   return (
     <Box flexDirection="column">
@@ -37,8 +38,12 @@ export function Header({
               {g.char}
             </Text>
           ))}
-          <Text color={ui.faint}>{" ─ "}</Text>
-          <Text color={ui.grey}>premium coding agent</Text>
+          {showTagline ? (
+            <>
+              <Text color={ui.faint}>{" ─ "}</Text>
+              <Text color={ui.grey}>premium coding agent</Text>
+            </>
+          ) : null}
         </Text>
         <Text>
           <Text color={ui.grey}>{model}</Text>
@@ -46,8 +51,6 @@ export function Header({
           <Text color={ui.grey}>{"↑" + tokensIn}</Text>
           <Text color={ui.faint}>{" "}</Text>
           <Text color={ui.grey}>{"↓" + tokensOut}</Text>
-          <Text color={ui.faint}>{" · "}</Text>
-          <Text color={ui.faint}>{ctx + " ctx"}</Text>
           {branch ? (
             <>
               <Text color={ui.faint}>{" · "}</Text>
