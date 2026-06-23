@@ -10,6 +10,9 @@ import { Input } from "./components/Input.js";
 import { SlashPalette, type PaletteItem } from "./components/SlashPalette.js";
 import { filterPalette } from "./components/SlashPalette.js";
 import { Transcript, type TranscriptItem } from "./components/Transcript.js";
+import { Welcome } from "./components/Welcome.js";
+import { StatusLine } from "./components/StatusLine.js";
+import type { MascotMood } from "./mascot.js";
 import { parseSlash, KNOWN_SLASH_COMMANDS } from "../ui/slash.js";
 
 export interface AppPermissionRequest {
@@ -76,6 +79,14 @@ export function App({
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
 
+  // Run state derived from the bus: drives the live StatusLine + mascot mood.
+  const [busy, setBusy] = useState(false);
+  const [mood, setMood] = useState<MascotMood>("idle");
+  const [phase, setPhase] = useState("");
+  const [startedAt, setStartedAt] = useState(0);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const busyRef = useRef(false);
+
   const paletteItems = commands ?? defaultCommands();
   const paletteOpen = query.startsWith("/");
   const filtered = paletteOpen ? filterPalette(paletteItems, query) : [];
@@ -97,16 +108,40 @@ export function App({
   });
 
   useEffect(() => {
+    const startTurn = () => {
+      if (!busyRef.current) {
+        busyRef.current = true;
+        setBusy(true);
+        const now = Date.now();
+        setStartedAt(now);
+        setElapsedMs(0);
+      }
+    };
+    const endTurn = (finalMood: MascotMood) => {
+      busyRef.current = false;
+      setBusy(false);
+      setMood(finalMood);
+      setPhase("");
+    };
     const unsubscribe = bus.on((e) => {
       switch (e.type) {
         case "text_delta":
+          startTurn();
+          setMood("working");
+          setPhase("responding…");
           liveTextRef.current += e.text;
           setLiveText(liveTextRef.current);
           break;
         case "thinking_delta":
+          startTurn();
+          setMood("thinking");
+          setPhase("thinking…");
           setThinking((t) => t + e.text);
           break;
         case "tool_start":
+          startTurn();
+          setMood("working");
+          setPhase(`running ${e.name}…`);
           setItems((prev) => [
             ...prev,
             { kind: "tool", name: e.name, input: e.input, _id: e.id } as TranscriptItem & {
@@ -138,6 +173,7 @@ export function App({
           liveTextRef.current = "";
           setLiveText("");
           setThinking("");
+          endTurn("done");
           break;
         }
         case "error":
@@ -147,15 +183,27 @@ export function App({
           liveTextRef.current = "";
           setLiveText("");
           setThinking("");
+          endTurn("error");
           break;
       }
     });
     return unsubscribe;
   }, [bus]);
 
+  // Tick elapsed time while busy; stop (and clean up) when idle.
+  useEffect(() => {
+    if (!busy) return;
+    const id = setInterval(() => {
+      setElapsedMs(Date.now() - startedAt);
+    }, 100);
+    return () => clearInterval(id);
+  }, [busy, startedAt]);
+
   const transcriptItems: TranscriptItem[] = liveText
     ? [...items, { kind: "assistant", text: liveText }]
     : items;
+
+  const showWelcome = items.length === 0 && !busy && !liveText;
 
   const handleChange = (value: string) => {
     setQuery(value);
@@ -184,7 +232,11 @@ export function App({
         branch={branch}
       />
       <Box flexDirection="column">
-        <Transcript items={transcriptItems} />
+        {showWelcome ? (
+          <Welcome model={model} cwd={cwd} />
+        ) : (
+          <Transcript items={transcriptItems} />
+        )}
       </Box>
       <ThinkingPanel text={thinking} collapsed={collapsed} />
       {permissionRequest ? (
@@ -196,6 +248,9 @@ export function App({
       ) : null}
       {permissionRequest ? null : (
         <>
+          {busy ? (
+            <StatusLine mood={mood} busy={busy} elapsedMs={elapsedMs} phase={phase} />
+          ) : null}
           {paletteOpen ? (
             <SlashPalette
               items={paletteItems}

@@ -178,9 +178,21 @@ export async function startTui(cwd: string): Promise<void> {
           break;
         }
         case "help": {
-          for (const item of paletteCommands) {
-            bus.emit({ type: "info", message: `${item.cmd} — ${item.desc}` });
-          }
+          const width = paletteCommands.reduce(
+            (w, item) => Math.max(w, item.cmd.length),
+            0,
+          );
+          const rows = paletteCommands
+            .map((item) => `  ${item.cmd.padEnd(width + 2)}${item.desc}`)
+            .join("\n");
+          const card = [
+            "COMMANDS",
+            "",
+            rows,
+            "",
+            "⇥ accept · ^t thinking · ^c quit",
+          ].join("\n");
+          bus.emit({ type: "info", message: card });
           break;
         }
         // resume: best-effort no-op for now.

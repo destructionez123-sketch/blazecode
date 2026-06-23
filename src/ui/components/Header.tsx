@@ -23,7 +23,9 @@ export function Header({
 }: HeaderProps) {
   const width = Math.min(process.stdout.columns || 80, 92);
   const wordmark = gradientChars("blaze");
-  const totalTokens = formatTokens(inputTokens + outputTokens);
+  const tokensIn = formatTokens(inputTokens);
+  const tokensOut = formatTokens(outputTokens);
+  const ctx = formatTokens(inputTokens + outputTokens);
 
   return (
     <Box flexDirection="column">
@@ -41,7 +43,11 @@ export function Header({
         <Text>
           <Text color={ui.grey}>{model}</Text>
           <Text color={ui.faint}>{" · "}</Text>
-          <Text color={ui.grey}>{totalTokens}</Text>
+          <Text color={ui.grey}>{"↑" + tokensIn}</Text>
+          <Text color={ui.faint}>{" "}</Text>
+          <Text color={ui.grey}>{"↓" + tokensOut}</Text>
+          <Text color={ui.faint}>{" · "}</Text>
+          <Text color={ui.faint}>{ctx + " ctx"}</Text>
           {branch ? (
             <>
               <Text color={ui.faint}>{" · "}</Text>

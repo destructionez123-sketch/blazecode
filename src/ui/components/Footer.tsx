@@ -12,11 +12,11 @@ const DEFAULT_HINTS = [
   "^c quit",
 ];
 
-/** A faint single hint line beneath the input. */
+/** A faint single hint line beneath the input, joined by faint dots. */
 export function Footer({ hints = DEFAULT_HINTS }: FooterProps) {
   return (
     <Box paddingX={1}>
-      <Text color={ui.faint}>{hints.join("   ")}</Text>
+      <Text color={ui.faint}>{hints.join(" · ")}</Text>
     </Box>
   );
 }

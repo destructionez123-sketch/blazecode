@@ -76,4 +76,24 @@ describe("App", () => {
     expect(frame).toContain("fresh answer");
     expect(frame).not.toContain("PARTIAL-LEAKfresh answer");
   });
+
+  it("shows the welcome screen when the transcript is empty and idle", () => {
+    const bus = new EventBus();
+    const { lastFrame } = render(
+      <App bus={bus} model="m" cwd="/proj/blaze" onSubmit={() => {}} />,
+    );
+    expect(lastFrame() ?? "").toContain("Blaze");
+    expect(lastFrame() ?? "").toContain("why is the build failing?");
+  });
+
+  it("shows a live status line while a turn is in progress", () => {
+    const bus = new EventBus();
+    const { lastFrame, rerender } = render(
+      <App bus={bus} model="m" cwd="/proj" onSubmit={() => {}} />,
+    );
+    bus.emit({ type: "tool_start", name: "bash", input: { command: "npm test" }, id: "1" });
+    rerender(<App bus={bus} model="m" cwd="/proj" onSubmit={() => {}} />);
+    const frame = lastFrame() ?? "";
+    expect(frame).toContain("running bash…");
+  });
 });

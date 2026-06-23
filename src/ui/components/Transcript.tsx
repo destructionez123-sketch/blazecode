@@ -1,5 +1,6 @@
 import { Box, Text } from "ink";
 import { ui } from "../theme.js";
+import { FACES } from "../mascot.js";
 import { ToolCard } from "./ToolCard.js";
 
 export type TranscriptItem =
@@ -33,7 +34,7 @@ export function Transcript({ items }: TranscriptProps) {
             return (
               <Box key={i} marginTop={1}>
                 <Box flexShrink={0}>
-                  <Text color={ui.flame}>{"● "}</Text>
+                  <Text color={ui.flame}>{FACES.idle + " "}</Text>
                 </Box>
                 <Box flexGrow={1}>
                   <Text color={ui.white}>{item.text}</Text>
@@ -61,17 +62,23 @@ export function Transcript({ items }: TranscriptProps) {
                 </Box>
               </Box>
             );
-          case "info":
+          case "info": {
+            const lines = item.text.split("\n");
             return (
-              <Box key={i} marginTop={1}>
-                <Box flexShrink={0}>
-                  <Text color={ui.grey}>{"› "}</Text>
-                </Box>
-                <Box flexGrow={1}>
-                  <Text color={ui.grey}>{item.text}</Text>
-                </Box>
+              <Box key={i} marginTop={1} flexDirection="column">
+                {lines.map((line, j) => (
+                  <Box key={j}>
+                    <Box flexShrink={0}>
+                      <Text color={ui.grey}>{j === 0 ? "› " : "  "}</Text>
+                    </Box>
+                    <Box flexGrow={1}>
+                      <Text color={ui.grey}>{line}</Text>
+                    </Box>
+                  </Box>
+                ))}
               </Box>
             );
+          }
         }
       })}
     </Box>

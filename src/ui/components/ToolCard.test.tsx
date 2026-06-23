@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import React from "react";
 import { render } from "ink-testing-library";
-import { ToolCard, toolDetail } from "./ToolCard.js";
+import { ToolCard, toolDetail, summarizeOutput } from "./ToolCard.js";
 
 describe("toolDetail", () => {
   it("picks path", () => {
@@ -49,5 +49,31 @@ describe("ToolCard", () => {
       <ToolCard name="bash" input={{ command: "boom" }} output="err" isError />,
     );
     expect(lastFrame() ?? "").toContain("✗");
+  });
+});
+
+describe("summarizeOutput", () => {
+  it("returns 'failed' on error", () => {
+    expect(summarizeOutput("bash", "anything", true)).toBe("failed");
+  });
+  it("returns empty string while running (undefined output)", () => {
+    expect(summarizeOutput("bash", undefined, false)).toBe("");
+  });
+  it("summarizes bash with exit ok and line count", () => {
+    expect(summarizeOutput("bash", "a\nb\nc", false)).toBe("exit ok · 3 lines");
+  });
+  it("summarizes read with a line count", () => {
+    expect(summarizeOutput("read", "l1\nl2", false)).toBe("2 lines");
+  });
+  it("shows a single-line snippet for short single-line output", () => {
+    expect(summarizeOutput("grep", "found it", false)).toBe("found it");
+  });
+  it("truncates a long single line to ~30 chars", () => {
+    const out = summarizeOutput("grep", "x".repeat(80), false);
+    expect(out.length).toBeLessThanOrEqual(30);
+    expect(out.endsWith("…")).toBe(true);
+  });
+  it("uses line count for multi-line non-bash/read output", () => {
+    expect(summarizeOutput("other", "1\n2\n3\n4", false)).toBe("4 lines");
   });
 });
