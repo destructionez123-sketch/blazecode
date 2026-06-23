@@ -175,7 +175,7 @@ export function App({
   };
 
   return (
-    <Box flexDirection="column" height="100%">
+    <Box flexDirection="column">
       <Header
         model={model}
         inputTokens={inputTokens}
@@ -183,7 +183,7 @@ export function App({
         cwd={cwd}
         branch={branch}
       />
-      <Box flexGrow={1} flexDirection="column">
+      <Box flexDirection="column">
         <Transcript items={transcriptItems} />
       </Box>
       <ThinkingPanel text={thinking} collapsed={collapsed} />
