@@ -1,7 +1,5 @@
 import { createElement } from "react";
 import { render } from "ink";
-import readline from "node:readline/promises";
-import { stdin, stdout } from "node:process";
 import { App, type AppPermissionRequest } from "../ui/App.js";
 import { bootstrap } from "./bootstrap.js";
 import { Session } from "../core/session.js";
@@ -14,28 +12,24 @@ import {
 import { createEngine } from "../core/engine.js";
 import { isValidKeyFormat, loadKey, saveKey } from "../config/auth.js";
 import { parseSlash } from "../ui/slash.js";
+import { promptHidden } from "../util/prompt.js";
 
 /**
  * Prompt the user for an API key on first run, validate, and persist it.
  * Returns true if a valid key is now available, false otherwise.
  */
 async function promptForKey(): Promise<boolean> {
-  const rl = readline.createInterface({ input: stdin, output: stdout });
-  try {
-    const answer = await rl.question(
-      "Paste your BlazeAPI Premium key (blaze-...): ",
-    );
-    const key = answer.trim();
-    if (!isValidKeyFormat(key)) {
-      console.error("Invalid key format. Keys must start with 'blaze-'.");
-      process.exitCode = 1;
-      return false;
-    }
-    await saveKey(key);
-    return true;
-  } finally {
-    rl.close();
+  const answer = await promptHidden(
+    "Paste your BlazeAPI Premium key (blaze-...): ",
+  );
+  const key = answer.trim();
+  if (!isValidKeyFormat(key)) {
+    console.error("Invalid key format. Keys must start with 'blaze-'.");
+    process.exitCode = 1;
+    return false;
   }
+  await saveKey(key);
+  return true;
 }
 
 export async function startTui(cwd: string): Promise<void> {

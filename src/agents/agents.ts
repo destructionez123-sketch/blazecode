@@ -38,22 +38,30 @@ async function scanDir(root: string): Promise<Agent[]> {
   for (const entry of entries) {
     if (extname(entry) !== ".md") continue;
     const full = join(root, entry);
-    const raw = await readFile(full, "utf8");
-    const parsed = matter(raw);
-    const fm = parsed.data as Record<string, unknown>;
-    agents.push({
-      name:
-        typeof fm.name === "string" ? fm.name : basename(entry, extname(entry)),
-      model: typeof fm.model === "string" ? fm.model : undefined,
-      tools: Array.isArray(fm.tools)
-        ? (fm.tools as unknown[]).map(String)
-        : undefined,
-      permission:
-        fm.permission && typeof fm.permission === "object"
-          ? (fm.permission as PermissionOverride)
+    try {
+      const raw = await readFile(full, "utf8");
+      const parsed = matter(raw);
+      const fm = parsed.data as Record<string, unknown>;
+      agents.push({
+        name:
+          typeof fm.name === "string"
+            ? fm.name
+            : basename(entry, extname(entry)),
+        model: typeof fm.model === "string" ? fm.model : undefined,
+        tools: Array.isArray(fm.tools)
+          ? (fm.tools as unknown[]).map(String)
           : undefined,
-      prompt: parsed.content.trim(),
-    });
+        permission:
+          fm.permission && typeof fm.permission === "object"
+            ? (fm.permission as PermissionOverride)
+            : undefined,
+        prompt: parsed.content.trim(),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[agents] skipping ${full}: ${message}`);
+      continue;
+    }
   }
   return agents;
 }

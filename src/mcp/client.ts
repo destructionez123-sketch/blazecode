@@ -25,62 +25,111 @@ export function stringifyMcpResult(res: unknown): string {
   return JSON.stringify(res);
 }
 
+/** Default per-server connect/listTools timeout in milliseconds. */
+export const MCP_CONNECT_TIMEOUT_MS = 10_000;
+
+/**
+ * Race a promise against a timeout. Resolves with the promise's value if it
+ * settles within `ms`, otherwise rejects with a timeout error mentioning
+ * `label`. The timer is cleared once the original promise settles so it never
+ * keeps the event loop alive.
+ */
+export function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`[mcp] ${label} timed out after ${ms}ms`));
+    }, ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 export async function connectMcpServers(
   servers: Record<string, McpServerConfig>,
   registry: ToolRegistry,
 ): Promise<{ close(): Promise<void> }> {
   const clients: Client[] = [];
 
-  for (const [name, cfg] of Object.entries(servers)) {
-    try {
-      const client = new Client(
-        { name: "blazecode", version: "0.1.0" },
-        { capabilities: {} },
-      );
+  async function connectOne(name: string, cfg: McpServerConfig): Promise<void> {
+    const client = new Client(
+      { name: "blazecode", version: "0.1.0" },
+      { capabilities: {} },
+    );
 
-      if (cfg.type === "stdio") {
-        const transport = new StdioClientTransport({
-          command: cfg.command!,
-          args: cfg.args ?? [],
-          env: cfg.env,
-        });
-        await client.connect(transport);
-      } else {
-        const transport = new StreamableHTTPClientTransport(new URL(cfg.url!));
-        await client.connect(transport);
-      }
-
-      clients.push(client);
-
-      const { tools } = await client.listTools();
-      for (const tool of tools) {
-        const bridged: Tool<Record<string, unknown>> = {
-          name: mcpToolName(name, tool.name),
-          description: tool.description ?? "",
-          schema: z.record(z.unknown()),
-          permission: "bash",
-          execute: async (input, _ctx) => {
-            const res = await client.callTool({
-              name: tool.name,
-              arguments: input as Record<string, unknown>,
-            });
-            return stringifyMcpResult(res);
-          },
-        };
-        // The MCP tool's inputSchema is already a JSON Schema object; surface it
-        // so the model sees the real parameters instead of a generic object.
-        if (tool.inputSchema) {
-          bridged.jsonSchema = tool.inputSchema as Record<string, unknown>;
+    // Wrap connect + listTools in a timeout so an unresponsive stdio server
+    // can't hang bootstrap (the SDK's initialize default is 60s).
+    const tools = await withTimeout(
+      (async () => {
+        if (cfg.type === "stdio") {
+          const transport = new StdioClientTransport({
+            command: cfg.command!,
+            args: cfg.args ?? [],
+            env: cfg.env,
+          });
+          await client.connect(transport);
+        } else {
+          const transport = new StreamableHTTPClientTransport(
+            new URL(cfg.url!),
+          );
+          await client.connect(transport);
         }
-        registry.register(bridged);
+        const { tools } = await client.listTools();
+        return tools;
+      })(),
+      MCP_CONNECT_TIMEOUT_MS,
+      name,
+    );
+
+    clients.push(client);
+
+    for (const tool of tools) {
+      const bridged: Tool<Record<string, unknown>> = {
+        name: mcpToolName(name, tool.name),
+        description: tool.description ?? "",
+        schema: z.record(z.unknown()),
+        permission: "bash",
+        execute: async (input, _ctx) => {
+          const res = await client.callTool({
+            name: tool.name,
+            arguments: input as Record<string, unknown>,
+          });
+          return stringifyMcpResult(res);
+        },
+      };
+      // The MCP tool's inputSchema is already a JSON Schema object; surface it
+      // so the model sees the real parameters instead of a generic object.
+      if (tool.inputSchema) {
+        bridged.jsonSchema = tool.inputSchema as Record<string, unknown>;
       }
-    } catch (err) {
+      registry.register(bridged);
+    }
+  }
+
+  // Connect servers in parallel; one bad (or timed-out) server shouldn't kill
+  // startup or block the others.
+  const results = await Promise.allSettled(
+    Object.entries(servers).map(([name, cfg]) => connectOne(name, cfg)),
+  );
+  for (const result of results) {
+    if (result.status === "rejected") {
+      const err = result.reason;
       console.error(
-        `[mcp] failed to connect to server "${name}": ${
+        `[mcp] failed to connect to server: ${
           err instanceof Error ? err.message : String(err)
         }`,
       );
-      // Continue with the remaining servers; one bad server shouldn't kill startup.
     }
   }
 

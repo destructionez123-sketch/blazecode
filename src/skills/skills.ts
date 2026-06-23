@@ -23,20 +23,21 @@ async function scanRoot(root: string): Promise<Skill[]> {
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     const skillPath = join(root, entry.name, "SKILL.md");
-    let raw: string;
     try {
-      raw = await readFile(skillPath, "utf8");
-    } catch {
+      const raw = await readFile(skillPath, "utf8");
+      const parsed = matter(raw);
+      const fm = parsed.data as { name?: string; description?: string };
+      skills.push({
+        name: fm.name ?? entry.name,
+        description: fm.description ?? "",
+        body: parsed.content,
+        path: skillPath,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[skills] skipping ${skillPath}: ${message}`);
       continue;
     }
-    const parsed = matter(raw);
-    const fm = parsed.data as { name?: string; description?: string };
-    skills.push({
-      name: fm.name ?? entry.name,
-      description: fm.description ?? "",
-      body: parsed.content,
-      path: skillPath,
-    });
   }
   return skills;
 }

@@ -1,6 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { ConfigSchema, type BlazeConfig } from "./schema.js";
+import {
+  PartialConfigSchema,
+  type BlazeConfig,
+  type PartialBlazeConfig,
+} from "./schema.js";
 import { globalConfigPath } from "./paths.js";
 
 export const DEFAULT_CONFIG: BlazeConfig = {
@@ -12,18 +16,36 @@ export const DEFAULT_CONFIG: BlazeConfig = {
   theme: "blaze",
 };
 
-export function mergeConfig(...parts: Partial<BlazeConfig>[]): BlazeConfig {
-  return parts.reduce<BlazeConfig>(
-    (acc, part) => ({ ...acc, ...part }) as BlazeConfig,
-    DEFAULT_CONFIG,
-  );
+export function mergeConfig(...parts: PartialBlazeConfig[]): BlazeConfig {
+  return parts.reduce<BlazeConfig>((acc, part) => {
+    return {
+      ...acc,
+      ...part,
+      // Deep-merge nested objects so a partial override (e.g. only
+      // `thinking.enabled`) preserves sibling keys from earlier parts.
+      thinking: { ...acc.thinking, ...part.thinking },
+      permission: { ...acc.permission, ...part.permission },
+      // Shallow-merge MCP servers by key so each part contributes its servers.
+      mcpServers: { ...acc.mcpServers, ...part.mcpServers },
+    };
+  }, DEFAULT_CONFIG);
 }
 
-async function readJsonIfExists(path: string): Promise<Partial<BlazeConfig>> {
+async function readJsonIfExists(path: string): Promise<PartialBlazeConfig> {
+  let raw: string;
   try {
-    const raw = await readFile(path, "utf8");
-    return ConfigSchema.partial().parse(JSON.parse(raw));
+    raw = await readFile(path, "utf8");
   } catch {
+    // Missing (or unreadable) file: no override, no warning.
+    return {};
+  }
+  // The file is present, so a parse/validation failure is worth surfacing
+  // instead of silently ignoring the user's configuration.
+  try {
+    return PartialConfigSchema.parse(JSON.parse(raw));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[config] ignoring invalid ${path}: ${message}`);
     return {};
   }
 }
@@ -31,7 +53,7 @@ async function readJsonIfExists(path: string): Promise<Partial<BlazeConfig>> {
 export async function loadConfig(cwd: string): Promise<BlazeConfig> {
   const global = await readJsonIfExists(globalConfigPath());
   const project = await readJsonIfExists(join(cwd, "blaze.json"));
-  const envOverrides: Partial<BlazeConfig> = {};
+  const envOverrides: PartialBlazeConfig = {};
   if (process.env.BLAZE_MODEL) envOverrides.model = process.env.BLAZE_MODEL;
   return mergeConfig(global, project, envOverrides);
 }

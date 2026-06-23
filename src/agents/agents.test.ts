@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, vi } from "vitest";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -27,6 +27,33 @@ describe("discoverAgents", () => {
     expect(r?.model).toBe("claude-opus-4-8");
     expect(r?.tools).toEqual(["read", "grep"]);
     expect(r?.prompt).toContain("You review code");
+  });
+
+  it("skips an agent with malformed frontmatter and keeps the valid ones", async () => {
+    const bad = await mkdtemp(join(tmpdir(), "blaze-agents-bad-"));
+    const aDir = join(bad, ".blaze", "agents");
+    await mkdir(aDir, { recursive: true });
+    await writeFile(
+      join(aDir, "ok.md"),
+      "---\nname: ok\n---\nYou are fine.",
+    );
+    await writeFile(
+      join(aDir, "broken.md"),
+      "---\nname: [unclosed\n---\nbroken body",
+    );
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    let agents: Agent[] = [];
+    await expect(
+      (async () => {
+        agents = await discoverAgents(bad);
+      })(),
+    ).resolves.not.toThrow();
+    expect(agents.find((a) => a.name === "ok")).toBeTruthy();
+    expect(agents.find((a) => a.name === "broken")).toBeFalsy();
+    expect(spy.mock.calls.map((c) => String(c[0])).join("\n")).toContain(
+      "[agents]",
+    );
+    spy.mockRestore();
   });
 });
 
