@@ -5,13 +5,13 @@
   "type": "module",
   "license": "MIT",
   "author": "",
-  "homepage": "",
+  "homepage": "https://github.com/wix/blazecode#readme",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "git+https://github.com/wix/blazecode.git"
   },
   "bugs": {
-    "url": ""
+    "url": "https://github.com/wix/blazecode/issues"
   },
   "keywords": [
     "ai",
