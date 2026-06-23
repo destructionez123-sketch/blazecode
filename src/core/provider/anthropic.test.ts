@@ -136,9 +136,17 @@ describe("mapAnthropicEvent", () => {
     ).toEqual([{ type: "usage", usage: { inputTokens: 0, outputTokens: 0 } }]);
   });
 
-  it("maps message_stop to done", () => {
-    expect(mapAnthropicEvent("message_stop", {})).toEqual([
-      { type: "done", stopReason: "end_turn" },
+  it("maps message_start usage (input_tokens)", () => {
+    expect(
+      mapAnthropicEvent("message_start", {
+        message: { usage: { input_tokens: 50, output_tokens: 1 } },
+      }),
+    ).toEqual([{ type: "usage", usage: { inputTokens: 50, outputTokens: 1 } }]);
+  });
+
+  it("defaults message_start usage tokens to 0", () => {
+    expect(mapAnthropicEvent("message_start", { message: {} })).toEqual([
+      { type: "usage", usage: { inputTokens: 0, outputTokens: 0 } },
     ]);
   });
 
@@ -146,5 +154,8 @@ describe("mapAnthropicEvent", () => {
     expect(mapAnthropicEvent("content_block_start", {})).toEqual([]);
     expect(mapAnthropicEvent("ping", {})).toEqual([]);
     expect(mapAnthropicEvent(undefined, {})).toEqual([]);
+    // message_stop is handled by stream() with the tracked snake_case
+    // stop_reason, so the pure mapper no longer emits a done event for it.
+    expect(mapAnthropicEvent("message_stop", {})).toEqual([]);
   });
 });

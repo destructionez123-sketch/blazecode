@@ -38,16 +38,34 @@ export async function fetchWithRetry(
   const fetchImpl = opts.fetchImpl ?? fetch;
   const signal = (init.signal ?? null) as AbortSignal | null;
 
-  let res = await fetchImpl(url, init);
-  for (let attempt = 0; attempt < retries; attempt++) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt > 0) {
+      // Backoff before a retry; bail immediately if aborted.
+      if (signal?.aborted) break;
+      await delay(baseDelayMs * 2 ** (attempt - 1), signal);
+      if (signal?.aborted) break;
+    }
+
+    let res: Response;
+    try {
+      res = await fetchImpl(url, init);
+    } catch (err) {
+      // Network-level failure (DNS/ECONNRESET/TLS). Retry unless aborted or
+      // out of attempts.
+      lastError = err;
+      if (signal?.aborted) throw err;
+      if (attempt >= retries) throw err;
+      continue;
+    }
+
     if (res.ok) return res;
     if (!TRANSIENT_STATUSES.has(res.status)) return res;
     if (signal?.aborted) return res;
-
-    await delay(baseDelayMs * 2 ** attempt, signal);
-    if (signal?.aborted) return res;
-
-    res = await fetchImpl(url, init);
+    if (attempt >= retries) return res;
   }
-  return res;
+
+  // Only reachable when the loop broke early due to an aborted signal after a
+  // thrown error.
+  throw lastError ?? new Error("fetchWithRetry: aborted");
 }

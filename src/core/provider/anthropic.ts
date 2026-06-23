@@ -77,6 +77,18 @@ export function mapAnthropicEvent(
   data: any,
 ): StreamEvent[] {
   switch (event) {
+    case "message_start": {
+      const usage = data?.message?.usage;
+      return [
+        {
+          type: "usage",
+          usage: {
+            inputTokens: usage?.input_tokens ?? 0,
+            outputTokens: usage?.output_tokens ?? 0,
+          },
+        },
+      ];
+    }
     case "content_block_delta": {
       const delta = data?.delta;
       if (delta?.type === "text_delta") {
@@ -100,9 +112,6 @@ export function mapAnthropicEvent(
         ];
       }
       return [];
-    }
-    case "message_stop": {
-      return [{ type: "done", stopReason: data?.stopReason ?? "end_turn" }];
     }
     default:
       return [];

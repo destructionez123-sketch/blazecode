@@ -19,4 +19,18 @@ describe("parseSSE", () => {
     expect(out[0]).toEqual({ event: "ping", data: '{"a":1}' });
     expect(out[1]).toEqual({ event: "done", data: "[DONE]" });
   });
+
+  it("handles CRLF line endings", async () => {
+    const raw = "event: ping\r\ndata: {\"a\":1}\r\n\r\n";
+    const out: Array<{ event?: string; data: string }> = [];
+    for await (const e of parseSSE(streamFrom(raw))) out.push(e);
+    expect(out).toEqual([{ event: "ping", data: '{"a":1}' }]);
+  });
+
+  it("flushes a final event lacking a trailing blank line", async () => {
+    const raw = 'data: {"x":1}\n';
+    const out: Array<{ event?: string; data: string }> = [];
+    for await (const e of parseSSE(streamFrom(raw))) out.push(e);
+    expect(out).toEqual([{ event: undefined, data: '{"x":1}' }]);
+  });
 });

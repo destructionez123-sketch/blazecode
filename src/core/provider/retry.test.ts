@@ -58,4 +58,54 @@ describe("fetchWithRetry", () => {
     expect(res.status).toBe(429);
     expect(calls).toBe(3); // initial + 2 retries
   });
+
+  it("retries when fetch throws then returns the eventual 200", async () => {
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls++;
+      if (calls < 3) throw new Error("ECONNRESET");
+      return makeResponse(200);
+    }) as unknown as typeof fetch;
+
+    const res = await fetchWithRetry(
+      "http://x",
+      {},
+      { baseDelayMs: 1, retries: 3, fetchImpl },
+    );
+
+    expect(res.status).toBe(200);
+    expect(calls).toBe(3);
+  });
+
+  it("rejects after exhausting retries when fetch always throws", async () => {
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls++;
+      throw new Error("ECONNRESET");
+    }) as unknown as typeof fetch;
+
+    await expect(
+      fetchWithRetry("http://x", {}, { baseDelayMs: 1, retries: 2, fetchImpl }),
+    ).rejects.toThrow("ECONNRESET");
+    expect(calls).toBe(3); // initial + 2 retries
+  });
+
+  it("does not retry a thrown error when the signal is aborted", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls++;
+      throw new Error("ECONNRESET");
+    }) as unknown as typeof fetch;
+
+    await expect(
+      fetchWithRetry(
+        "http://x",
+        { signal: controller.signal },
+        { baseDelayMs: 1, retries: 3, fetchImpl },
+      ),
+    ).rejects.toThrow();
+    expect(calls).toBe(1); // initial attempt only, no retry
+  });
 });
