@@ -11,4 +11,19 @@ describe("cli arg parsing", () => {
   it("defaults to tui", () => {
     expect(parseArgs([])).toEqual({ command: "tui" });
   });
+
+  it("recognizes --version and -v", () => {
+    expect(parseArgs(["--version"])).toEqual({ command: "version" });
+    expect(parseArgs(["-v"])).toEqual({ command: "version" });
+  });
+  it("recognizes --help and -h", () => {
+    expect(parseArgs(["--help"])).toEqual({ command: "help" });
+    expect(parseArgs(["-h"])).toEqual({ command: "help" });
+  });
+  it("reports an unknown command", () => {
+    expect(parseArgs(["foo"])).toEqual({ command: "unknown", input: "foo" });
+  });
+  it("treats `auth` without `login` as unknown", () => {
+    expect(parseArgs(["auth"])).toEqual({ command: "unknown", input: "auth" });
+  });
 });

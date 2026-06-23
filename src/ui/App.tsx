@@ -99,6 +99,11 @@ export function App({
         }
         case "error":
           setItems((prev) => [...prev, { kind: "error", message: e.message }]);
+          // Reset the live buffers so partial streamed text from the failed
+          // turn does not leak into the next turn's transcript.
+          liveTextRef.current = "";
+          setLiveText("");
+          setThinking("");
           break;
       }
     });
@@ -110,6 +115,8 @@ export function App({
     : items;
 
   const handleSubmit = (text: string) => {
+    // Ignore empty/whitespace submissions entirely: no user line, no engine run.
+    if (text.trim() === "") return;
     // Slash commands are forwarded as-is and never shown as a user line.
     if (shouldShowAsUser(text)) {
       setItems((prev) => [...prev, { kind: "user", text }]);

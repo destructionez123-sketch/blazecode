@@ -22,11 +22,14 @@ describe("parseSlash", () => {
   it("trims surrounding whitespace and the arg", () => {
     expect(parseSlash("  /model   gpt-4o  ")).toEqual({ cmd: "model", arg: "gpt-4o" });
   });
-  it("returns a token for an unknown leading-slash command", () => {
-    expect(parseSlash("/wat now")).toEqual({ cmd: "wat", arg: "now" });
+  it("returns null for an unknown leading-slash command", () => {
+    expect(parseSlash("/wat now")).toBeNull();
   });
-  it("treats a lone slash as having an empty cmd", () => {
-    expect(parseSlash("/")).toEqual({ cmd: "" });
+  it("treats a path-like leading slash as normal text (no data loss)", () => {
+    expect(parseSlash("/etc/hosts is weird")).toBeNull();
+  });
+  it("returns null for a lone slash", () => {
+    expect(parseSlash("/")).toBeNull();
   });
   it("exposes the known command list", () => {
     expect(KNOWN_SLASH_COMMANDS).toContain("model");

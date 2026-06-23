@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { render } from "ink";
 import { App, type AppPermissionRequest } from "../ui/App.js";
-import { bootstrap } from "./bootstrap.js";
+import { bootstrap, type BootstrapResult } from "./bootstrap.js";
 import { Session } from "../core/session.js";
 import { EventBus } from "../core/events.js";
 import { selectProvider } from "../core/provider/select.js";
@@ -40,7 +40,14 @@ export async function startTui(cwd: string): Promise<void> {
     if (!ok) return;
   }
 
-  const b = await bootstrap(cwd);
+  let b: BootstrapResult;
+  try {
+    b = await bootstrap(cwd);
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exitCode = 1;
+    return;
+  }
 
   const session = new Session(`tui-${Date.now()}`);
   const bus = new EventBus();
@@ -54,13 +61,25 @@ export async function startTui(cwd: string): Promise<void> {
   // The user's decision resolves the promise and clears the pending request.
   let pending: AppPermissionRequest | undefined;
 
+  // The render instance is created later; `rerenderApp` is a no-op until then.
+  let rerenderTarget: ReturnType<typeof render> | undefined;
+  function rerenderApp() {
+    rerenderTarget?.rerender(buildApp());
+  }
+
   const permissions = createPermissionManager(
     ({ tool, detail }) =>
       new Promise<Decision>((resolve) => {
+        // Guard against the decision callback firing more than once (e.g. a
+        // double-Enter race): resolve at most once and clear `pending`
+        // atomically on the first call.
+        let settled = false;
         pending = {
           tool,
           detail,
           onDecide: (decision) => {
+            if (settled) return;
+            settled = true;
             pending = undefined;
             rerenderApp();
             resolve(decision);
@@ -92,8 +111,13 @@ export async function startTui(cwd: string): Promise<void> {
   }
 
   let busy = false;
+  // Incremented on /clear so the App remounts with a fresh, empty transcript.
+  let resetKey = 0;
 
   async function onSubmit(text: string): Promise<void> {
+    // Empty/whitespace submissions are ignored entirely.
+    if (text.trim() === "") return;
+
     const slash = parseSlash(text);
     if (slash) {
       switch (slash.cmd) {
@@ -105,6 +129,8 @@ export async function startTui(cwd: string): Promise<void> {
           break;
         case "clear":
           session.messages = [];
+          // Remount the App to clear the visible transcript as well.
+          resetKey += 1;
           break;
         // agents / mcp / resume / help: best-effort no-ops for now.
         case "agents":
@@ -135,6 +161,7 @@ export async function startTui(cwd: string): Promise<void> {
 
   function buildApp() {
     return createElement(App, {
+      key: resetKey,
       bus,
       model,
       cwd,
@@ -144,14 +171,13 @@ export async function startTui(cwd: string): Promise<void> {
     });
   }
 
-  const instance = render(buildApp());
-
-  function rerenderApp() {
-    instance.rerender(buildApp());
-  }
-
   try {
+    const instance = render(buildApp());
+    rerenderTarget = instance;
     await instance.waitUntilExit();
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exitCode = 1;
   } finally {
     await b.mcpClose();
   }

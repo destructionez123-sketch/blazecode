@@ -37,4 +37,23 @@ describe("App", () => {
     expect(shouldShowAsUser("/think")).toBe(false);
     expect(shouldShowAsUser("/model gpt-4")).toBe(false);
   });
+
+  it("does not leak pre-error partial text into the next turn", () => {
+    const bus = new EventBus();
+    const { lastFrame, rerender } = render(
+      <App bus={bus} model="m" cwd="/proj" onSubmit={() => {}} />,
+    );
+    // Partial streamed text, then the turn errors out.
+    bus.emit({ type: "text_delta", text: "PARTIAL-LEAK" });
+    bus.emit({ type: "error", message: "boom" });
+    rerender(<App bus={bus} model="m" cwd="/proj" onSubmit={() => {}} />);
+    // New, clean turn.
+    bus.emit({ type: "text_delta", text: "fresh answer" });
+    bus.emit({ type: "turn_end", stopReason: "end" });
+    rerender(<App bus={bus} model="m" cwd="/proj" onSubmit={() => {}} />);
+
+    const frame = lastFrame() ?? "";
+    expect(frame).toContain("fresh answer");
+    expect(frame).not.toContain("PARTIAL-LEAKfresh answer");
+  });
 });
