@@ -5,13 +5,13 @@
   "type": "module",
   "license": "MIT",
   "author": "",
-  "homepage": "https://github.com/wix/blazecode#readme",
+  "homepage": "https://github.com/destructionez123-sketch/blazecode#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wix/blazecode.git"
+    "url": "git+https://github.com/destructionez123-sketch/blazecode.git"
   },
   "bugs": {
-    "url": "https://github.com/wix/blazecode/issues"
+    "url": "https://github.com/destructionez123-sketch/blazecode/issues"
   },
   "keywords": [
     "ai",
