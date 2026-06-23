@@ -45,6 +45,23 @@ Or run without installing:
 npx blazecode
 ```
 
+### Run from source
+
+Until the npm package is published, you can run BlazeCode directly from the repo:
+
+```bash
+git clone https://github.com/destructionez123-sketch/blazecode.git
+cd blazecode
+npm install
+npm run build
+npm link        # makes the `blaze` command available globally
+
+# now use it anywhere:
+blaze
+```
+
+(`npm link` is optional — you can also run `node dist/cli.js` from the repo directory.)
+
 ## Quick start
 
 1. **Authenticate** (stores your key locally; you only do this once):
