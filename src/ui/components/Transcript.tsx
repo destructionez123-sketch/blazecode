@@ -1,12 +1,13 @@
 import { Box, Text } from "ink";
-import { theme } from "../theme.js";
+import { ui } from "../theme.js";
 import { ToolCard } from "./ToolCard.js";
 
 export type TranscriptItem =
   | { kind: "user"; text: string }
   | { kind: "assistant"; text: string }
   | { kind: "tool"; name: string; input: unknown; output?: string; isError?: boolean }
-  | { kind: "error"; message: string };
+  | { kind: "error"; message: string }
+  | { kind: "info"; text: string };
 
 export interface TranscriptProps {
   items: TranscriptItem[];
@@ -19,15 +20,19 @@ export function Transcript({ items }: TranscriptProps) {
         switch (item.kind) {
           case "user":
             return (
-              <Text key={i} color={theme.text}>
-                › {item.text}
-              </Text>
+              <Box key={i} marginTop={1}>
+                <Text color={ui.flame}>{"▌ "}</Text>
+                <Text color={ui.white}>{item.text}</Text>
+              </Box>
             );
           case "assistant":
             return (
-              <Text key={i} color={theme.text}>
-                {item.text}
-              </Text>
+              <Box key={i} marginTop={1}>
+                <Text>
+                  <Text color={ui.flame}>{"● "}</Text>
+                  <Text color={ui.white}>{item.text}</Text>
+                </Text>
+              </Box>
             );
           case "tool":
             return (
@@ -41,9 +46,17 @@ export function Transcript({ items }: TranscriptProps) {
             );
           case "error":
             return (
-              <Text key={i} color={theme.ember}>
-                ✖ {item.message}
-              </Text>
+              <Box key={i} marginTop={1}>
+                <Text color={ui.flame}>{"✗ "}</Text>
+                <Text color={ui.white}>{item.message}</Text>
+              </Box>
+            );
+          case "info":
+            return (
+              <Box key={i} marginTop={1}>
+                <Text color={ui.grey}>{"› "}</Text>
+                <Text color={ui.grey}>{item.text}</Text>
+              </Box>
             );
         }
       })}

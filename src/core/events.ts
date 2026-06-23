@@ -5,7 +5,8 @@ export type EngineEvent =
   | { type: "tool_end"; id: string; output: string; isError: boolean }
   | { type: "usage"; inputTokens: number; outputTokens: number }
   | { type: "turn_end"; stopReason: string }
-  | { type: "error"; message: string; status?: number };
+  | { type: "error"; message: string; status?: number }
+  | { type: "info"; message: string };
 
 export type EngineEventListener = (e: EngineEvent) => void;
 

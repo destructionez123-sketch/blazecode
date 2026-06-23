@@ -2,12 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { Box, useInput } from "ink";
 import type { EventBus } from "../core/events.js";
 import type { PermissionDecision } from "./components/PermissionPrompt.js";
-import { StatusBar } from "./components/StatusBar.js";
+import { Header } from "./components/Header.js";
+import { Footer } from "./components/Footer.js";
 import { ThinkingPanel } from "./components/ThinkingPanel.js";
 import { PermissionPrompt } from "./components/PermissionPrompt.js";
 import { Input } from "./components/Input.js";
+import { SlashPalette, type PaletteItem } from "./components/SlashPalette.js";
+import { filterPalette } from "./components/SlashPalette.js";
 import { Transcript, type TranscriptItem } from "./components/Transcript.js";
-import { parseSlash } from "../ui/slash.js";
+import { parseSlash, KNOWN_SLASH_COMMANDS } from "../ui/slash.js";
 
 export interface AppPermissionRequest {
   tool: string;
@@ -23,6 +26,26 @@ export interface AppProps {
   onSubmit: (text: string) => void;
   permissionRequest?: AppPermissionRequest;
   thinkingCollapsed?: boolean;
+  commands?: PaletteItem[];
+}
+
+const COMMAND_DESCRIPTIONS: Record<string, string> = {
+  model: "switch the active model",
+  think: "toggle extended thinking",
+  clear: "clear the transcript",
+  agents: "list available sub-agents",
+  mcp: "connected MCP servers",
+  skills: "available skills",
+  resume: "resume a session",
+  help: "all commands",
+};
+
+/** Default palette derived from the known slash commands. */
+function defaultCommands(): PaletteItem[] {
+  return KNOWN_SLASH_COMMANDS.map((cmd) => ({
+    cmd: "/" + cmd,
+    desc: COMMAND_DESCRIPTIONS[cmd] ?? "",
+  }));
 }
 
 /**
@@ -41,6 +64,7 @@ export function App({
   onSubmit,
   permissionRequest,
   thinkingCollapsed,
+  commands,
 }: AppProps) {
   const [items, setItems] = useState<TranscriptItem[]>([]);
   const [liveText, setLiveText] = useState("");
@@ -49,10 +73,26 @@ export function App({
   const [inputTokens, setInputTokens] = useState(0);
   const [outputTokens, setOutputTokens] = useState(0);
   const [collapsed, setCollapsed] = useState(thinkingCollapsed ?? true);
+  const [query, setQuery] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const paletteItems = commands ?? defaultCommands();
+  const paletteOpen = query.startsWith("/");
+  const filtered = paletteOpen ? filterPalette(paletteItems, query) : [];
 
   useInput((input, key) => {
     if (key.ctrl && input === "t") {
       setCollapsed((c) => !c);
+      return;
+    }
+    if (!paletteOpen || filtered.length === 0) return;
+    if (key.upArrow) {
+      setSelectedIndex((s) => (s + filtered.length - 1) % filtered.length);
+    } else if (key.downArrow) {
+      setSelectedIndex((s) => (s + 1) % filtered.length);
+    } else if (key.tab) {
+      const choice = filtered[Math.min(selectedIndex, filtered.length - 1)];
+      if (choice) setQuery(choice.cmd + " ");
     }
   });
 
@@ -87,6 +127,9 @@ export function App({
           setInputTokens((n) => n + e.inputTokens);
           setOutputTokens((n) => n + e.outputTokens);
           break;
+        case "info":
+          setItems((prev) => [...prev, { kind: "info", text: e.message }]);
+          break;
         case "turn_end": {
           const buffer = liveTextRef.current;
           if (buffer) {
@@ -114,7 +157,14 @@ export function App({
     ? [...items, { kind: "assistant", text: liveText }]
     : items;
 
+  const handleChange = (value: string) => {
+    setQuery(value);
+    setSelectedIndex(0);
+  };
+
   const handleSubmit = (text: string) => {
+    setQuery("");
+    setSelectedIndex(0);
     // Ignore empty/whitespace submissions entirely: no user line, no engine run.
     if (text.trim() === "") return;
     // Slash commands are forwarded as-is and never shown as a user line.
@@ -126,6 +176,13 @@ export function App({
 
   return (
     <Box flexDirection="column" height="100%">
+      <Header
+        model={model}
+        inputTokens={inputTokens}
+        outputTokens={outputTokens}
+        cwd={cwd}
+        branch={branch}
+      />
       <Box flexGrow={1} flexDirection="column">
         <Transcript items={transcriptItems} />
       </Box>
@@ -137,14 +194,24 @@ export function App({
           onDecide={permissionRequest.onDecide}
         />
       ) : null}
-      <StatusBar
-        model={model}
-        inputTokens={inputTokens}
-        outputTokens={outputTokens}
-        cwd={cwd}
-        branch={branch}
-      />
-      {permissionRequest ? null : <Input onSubmit={handleSubmit} />}
+      {permissionRequest ? null : (
+        <>
+          {paletteOpen ? (
+            <SlashPalette
+              items={paletteItems}
+              query={query}
+              selectedIndex={selectedIndex}
+            />
+          ) : null}
+          <Input
+            value={query}
+            onChange={handleChange}
+            onSubmit={handleSubmit}
+            placeholder="Ask anything — / for commands"
+          />
+          <Footer />
+        </>
+      )}
     </Box>
   );
 }

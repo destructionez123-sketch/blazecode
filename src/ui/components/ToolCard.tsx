@@ -1,5 +1,5 @@
 import { Box, Text } from "ink";
-import { theme } from "../theme.js";
+import { ui } from "../theme.js";
 
 export interface ToolCardProps {
   name: string;
@@ -9,20 +9,34 @@ export interface ToolCardProps {
   collapsed?: boolean;
 }
 
-function truncate(output: string): string {
-  const byChars = output.length > 500 ? output.slice(0, 500) + "…" : output;
-  const lines = byChars.split("\n");
-  if (lines.length > 10) {
-    return lines.slice(0, 10).join("\n") + "\n…";
-  }
-  return byChars;
+/**
+ * Derive a compact, single-line detail string from a tool's input. Picks the
+ * most relevant field (path/command/pattern/url) and truncates it so the
+ * one-line card stays tight. Pure and unit-testable.
+ */
+export function toolDetail(input: unknown): string {
+  if (input === null || typeof input !== "object") return "";
+  const obj = input as Record<string, unknown>;
+  const candidate =
+    obj.path ?? obj.command ?? obj.pattern ?? obj.url ?? obj.file_path ?? "";
+  const str = typeof candidate === "string" ? candidate : String(candidate);
+  if (!str) return "";
+  return str.length > 50 ? str.slice(0, 49) + "…" : str;
 }
 
-export function ToolCard({ name, output, isError, collapsed }: ToolCardProps) {
+export function ToolCard({ name, input, output, isError }: ToolCardProps) {
+  const detail = toolDetail(input);
+  const status = isError ? "✗" : output === undefined ? "•" : "✓";
+  const statusColor = isError ? ui.flame : output === undefined ? ui.flame : ui.grey;
+
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor={theme.coal} paddingX={1}>
-      <Text color={isError ? theme.ember : theme.flame}>⚙ {name}</Text>
-      {output && !collapsed ? <Text color={theme.dim}>{truncate(output)}</Text> : null}
+    <Box justifyContent="space-between">
+      <Text>
+        <Text color={ui.faint}>{"  ↳ "}</Text>
+        <Text color={ui.grey}>{name}</Text>
+        {detail ? <Text color={ui.faint}>{"  " + detail}</Text> : null}
+      </Text>
+      <Text color={statusColor}>{status}</Text>
     </Box>
   );
 }

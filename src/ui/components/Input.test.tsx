@@ -7,7 +7,7 @@ describe("Input", () => {
   it("mounts with a flame prefix and placeholder", () => {
     const { lastFrame } = render(<Input onSubmit={() => {}} placeholder="type here" />);
     const frame = lastFrame() ?? "";
-    expect(frame).toContain("›");
+    expect(frame).toContain("❯");
     expect(frame).toContain("type here");
   });
 });

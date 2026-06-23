@@ -38,6 +38,26 @@ describe("App", () => {
     expect(shouldShowAsUser("/model gpt-4")).toBe(false);
   });
 
+  it("treats an unknown /foo as normal text (shown as user)", () => {
+    expect(shouldShowAsUser("/foo bar")).toBe(true);
+  });
+
+  it("shows the slash palette when input starts with /", async () => {
+    const bus = new EventBus();
+    const { lastFrame, stdin } = render(
+      <App bus={bus} model="m" cwd="/proj" onSubmit={() => {}} />,
+    );
+    // ink-testing-library swallows the first keystroke during focus init, so
+    // send a harmless warmup byte before the real "/".
+    stdin.write("\x08");
+    await new Promise((r) => setTimeout(r, 30));
+    stdin.write("/");
+    await new Promise((r) => setTimeout(r, 80));
+    const frame = lastFrame() ?? "";
+    expect(frame).toContain("/model");
+    expect(frame).toContain("/help");
+  });
+
   it("does not leak pre-error partial text into the next turn", () => {
     const bus = new EventBus();
     const { lastFrame, rerender } = render(
