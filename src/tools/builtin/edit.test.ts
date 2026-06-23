@@ -24,4 +24,14 @@ describe("edit tool", () => {
       editTool.execute({ path: "f.txt", oldString: "nope", newString: "x" }, { cwd: dir }),
     ).rejects.toThrow();
   });
+
+  it("matches an LF oldString against a CRLF file and preserves CRLF", async () => {
+    await writeFile(join(dir, "crlf.txt"), "alpha\r\nbeta\r\ngamma");
+    await editTool.execute(
+      { path: "crlf.txt", oldString: "alpha\nbeta", newString: "ALPHA\nBETA" },
+      { cwd: dir },
+    );
+    const out = await readFile(join(dir, "crlf.txt"), "utf8");
+    expect(out).toBe("ALPHA\r\nBETA\r\ngamma");
+  });
 });

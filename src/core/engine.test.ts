@@ -19,6 +19,17 @@ function fakeProvider(scripts: StreamEvent[][]): Provider {
   };
 }
 
+// A provider that ALWAYS emits a tool_call + done, never finishing.
+function infiniteToolProvider(): Provider {
+  return {
+    name: "anthropic",
+    async *stream() {
+      yield { type: "tool_call", tool: { id: "t", name: "echo", input: { text: "x" } } };
+      yield { type: "done", stopReason: "tool_use" };
+    },
+  };
+}
+
 describe("engine", () => {
   it("executes a tool then finishes", async () => {
     const reg = new ToolRegistry();
@@ -137,5 +148,83 @@ describe("engine", () => {
     expect(usageEvents).toEqual([{ inputTokens: 10, outputTokens: 5 }]);
     expect(session.inputTokens).toBe(10);
     expect(session.outputTokens).toBe(5);
+  });
+
+  it("terminates after max iterations when the model never finishes", async () => {
+    const reg = new ToolRegistry();
+    reg.register({
+      name: "echo",
+      description: "echo",
+      schema: z.object({ text: z.string() }),
+      permission: "none",
+      execute: async (i: any) => `echoed:${i.text}`,
+    });
+    const bus = new EventBus();
+    const errors: string[] = [];
+    bus.on((e) => {
+      if (e.type === "error") errors.push(e.message);
+    });
+    const engine = createEngine({
+      provider: infiniteToolProvider(),
+      session: new Session("t"),
+      bus,
+      tools: reg,
+      permissions: createPermissionManager(async () => "allow_once"),
+      config: DEFAULT_CONFIG,
+      key: "blaze-x",
+      cwd: process.cwd(),
+      system: "sys",
+    });
+    // Must terminate (not hang) and emit an error mentioning the limit.
+    await engine.run("loop forever", new AbortController().signal);
+    expect(errors.some((m) => /maximum tool iterations \(50\)/.test(m))).toBe(true);
+  });
+
+  it("produces an isError tool_result for invalid tool input without throwing", async () => {
+    const reg = new ToolRegistry();
+    let executed = false;
+    reg.register({
+      name: "needspath",
+      description: "needs a path",
+      schema: z.object({ path: z.string() }),
+      permission: "none",
+      execute: async () => {
+        executed = true;
+        return "ran";
+      },
+    });
+    // First turn: tool_call with missing required `path`. Second turn finishes.
+    const provider = fakeProvider([
+      [
+        { type: "tool_call", tool: { id: "t1", name: "needspath", input: {} } },
+        { type: "done", stopReason: "tool_use" },
+      ],
+      [
+        { type: "text_delta", text: "ok" },
+        { type: "done", stopReason: "end_turn" },
+      ],
+    ]);
+    const bus = new EventBus();
+    const ends: Array<{ output: string; isError: boolean }> = [];
+    bus.on((e) => {
+      if (e.type === "tool_end") ends.push({ output: e.output, isError: e.isError });
+    });
+    const engine = createEngine({
+      provider,
+      session: new Session("t"),
+      bus,
+      tools: reg,
+      permissions: createPermissionManager(async () => "allow_once"),
+      config: DEFAULT_CONFIG,
+      key: "blaze-x",
+      cwd: process.cwd(),
+      system: "sys",
+    });
+    await engine.run("call it", new AbortController().signal);
+    expect(executed).toBe(false);
+    expect(ends).toHaveLength(1);
+    expect(ends[0].isError).toBe(true);
+    expect(ends[0].output).toMatch(/Invalid tool input/);
+    expect(ends[0].output).toMatch(/path/);
   });
 });

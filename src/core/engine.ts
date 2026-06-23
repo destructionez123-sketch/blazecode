@@ -12,6 +12,7 @@ import type { PermissionManager } from "../permissions/manager.js";
 import type { BlazeConfig } from "../config/schema.js";
 
 const MAX_TOKENS = 8000;
+const MAX_ITERATIONS = 50;
 
 export interface EngineDeps {
   provider: Provider;
@@ -43,7 +44,18 @@ export function createEngine(deps: EngineDeps): {
   async function run(userText: string, signal: AbortSignal): Promise<void> {
     session.addUser(userText);
 
+    let iterations = 0;
     while (true) {
+      if (iterations >= MAX_ITERATIONS) {
+        bus.emit({
+          type: "error",
+          message: `Reached maximum tool iterations (${MAX_ITERATIONS})`,
+        });
+        bus.emit({ type: "turn_end", stopReason: "max_iterations" });
+        return;
+      }
+      iterations++;
+
       const req: CompletionRequest = {
         model: config.model,
         system,
@@ -98,13 +110,24 @@ export function createEngine(deps: EngineDeps): {
         }
       }
 
+      // When the turn errored, do NOT commit any pending tool_use blocks:
+      // an assistant message containing tool_use without a matching tool_result
+      // makes the NEXT provider request malformed (both Anthropic and OpenAI
+      // 400) and, since it's persisted, bricks the session. Commit only the
+      // text block (if any) in that case.
       const content: ContentBlock[] = [
         ...(text ? [{ type: "text", text } as const] : []),
-        ...pendingToolUses.map(
-          (tool) => ({ type: "tool_use", tool }) as const,
-        ),
+        ...(errored
+          ? []
+          : pendingToolUses.map(
+              (tool) => ({ type: "tool_use", tool }) as const,
+            )),
       ];
-      session.addAssistant(content);
+      // Never push an empty-content assistant message: Anthropic rejects empty
+      // content arrays on the next request.
+      if (content.length > 0) {
+        session.addAssistant(content);
+      }
 
       if (errored) {
         return;
@@ -142,12 +165,20 @@ export function createEngine(deps: EngineDeps): {
             resultContent = "User denied permission";
             isError = true;
           } else {
-            try {
-              resultContent = await tool.execute(toolUse.input, { cwd });
-              isError = false;
-            } catch (err) {
-              resultContent = `Error: ${(err as Error).message}`;
+            const parsed = tool.schema.safeParse(toolUse.input);
+            if (!parsed.success) {
+              resultContent = `Invalid tool input: ${parsed.error.issues
+                .map((i) => i.path.join(".") + ": " + i.message)
+                .join("; ")}`;
               isError = true;
+            } else {
+              try {
+                resultContent = await tool.execute(parsed.data, { cwd });
+                isError = false;
+              } catch (err) {
+                resultContent = `Error: ${(err as Error).message}`;
+                isError = true;
+              }
             }
           }
         }

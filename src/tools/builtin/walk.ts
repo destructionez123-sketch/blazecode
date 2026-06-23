@@ -8,7 +8,14 @@ const SKIP_DIRS = new Set(["node_modules", ".git"]);
  * Directories named `node_modules` or `.git` are skipped.
  */
 export async function* walkFiles(root: string): AsyncGenerator<string> {
-  const entries = await readdir(root, { withFileTypes: true });
+  let entries;
+  try {
+    entries = await readdir(root, { withFileTypes: true });
+  } catch {
+    // Skip directories we cannot read (EACCES/ENOENT/etc.) instead of
+    // aborting the entire walk and returning zero results.
+    return;
+  }
   for (const entry of entries) {
     const full = path.join(root, entry.name);
     if (entry.isDirectory()) {
