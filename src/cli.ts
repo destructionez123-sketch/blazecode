@@ -1,6 +1,6 @@
 import { loginCommand } from "./commands/auth.js";
 import { runHeadless } from "./commands/run.js";
-import { loadConfig } from "./config/load.js";
+import { startTui } from "./app/tui.js";
 
 export type ParsedArgs =
   | { command: "auth-login" }
@@ -17,12 +17,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
   return { command: "tui" };
 }
 
-async function startTui(): Promise<void> {
-  // Full interactive Ink App rendering is wired in Task 24.
-  const config = await loadConfig(process.cwd());
-  console.log("BlazeCode interactive mode");
-  console.log(`Model: ${config.model}`);
-  console.log("(interactive TUI wired in next step)");
+async function startTuiCommand(): Promise<void> {
+  await startTui(process.cwd());
 }
 
 export async function main(): Promise<void> {
@@ -35,7 +31,7 @@ export async function main(): Promise<void> {
       await runHeadless(args.prompt);
       break;
     case "tui":
-      await startTui();
+      await startTuiCommand();
       break;
   }
 }

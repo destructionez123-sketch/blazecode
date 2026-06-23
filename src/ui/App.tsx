@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box, useInput } from "ink";
 import type { EventBus } from "../core/events.js";
 import type { PermissionDecision } from "./components/PermissionPrompt.js";
@@ -35,6 +35,7 @@ export function App({
 }: AppProps) {
   const [items, setItems] = useState<TranscriptItem[]>([]);
   const [liveText, setLiveText] = useState("");
+  const liveTextRef = useRef("");
   const [thinking, setThinking] = useState("");
   const [inputTokens, setInputTokens] = useState(0);
   const [outputTokens, setOutputTokens] = useState(0);
@@ -50,7 +51,8 @@ export function App({
     const unsubscribe = bus.on((e) => {
       switch (e.type) {
         case "text_delta":
-          setLiveText((t) => t + e.text);
+          liveTextRef.current += e.text;
+          setLiveText(liveTextRef.current);
           break;
         case "thinking_delta":
           setThinking((t) => t + e.text);
@@ -76,15 +78,16 @@ export function App({
           setInputTokens((n) => n + e.inputTokens);
           setOutputTokens((n) => n + e.outputTokens);
           break;
-        case "turn_end":
-          setLiveText((buffer) => {
-            if (buffer) {
-              setItems((prev) => [...prev, { kind: "assistant", text: buffer }]);
-            }
-            return "";
-          });
+        case "turn_end": {
+          const buffer = liveTextRef.current;
+          if (buffer) {
+            setItems((prev) => [...prev, { kind: "assistant", text: buffer }]);
+          }
+          liveTextRef.current = "";
+          setLiveText("");
           setThinking("");
           break;
+        }
         case "error":
           setItems((prev) => [...prev, { kind: "error", message: e.message }]);
           break;
