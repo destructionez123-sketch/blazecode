@@ -135,7 +135,8 @@ summary to the parent.
 ### Config & auth (`config/`)
 
 - `blaze auth login` → stores key in `%APPDATA%\blaze\auth.json` /
-  `~/.config/blaze/auth.json`. `BLAZE_API_KEY` env overrides.
+  `~/.config/blaze/auth.json`. `BLAZE_API_KEY` env overrides. On first run with no key
+  found, the TUI prompts to paste the key instead of erroring.
 - `blaze.json` (project, with global fallback): `model`, provider `options`, `mcpServers`,
   `agents`, `permission` defaults, `thinking` settings, `theme`.
 - Resolution order: env > project > global > defaults.
