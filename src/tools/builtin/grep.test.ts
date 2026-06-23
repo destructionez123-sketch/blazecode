@@ -33,4 +33,9 @@ describe("grep tool", () => {
     expect(out).toContain("a.ts:1: const foo = 1;");
     expect(out).not.toContain("c.txt");
   });
+
+  it("returns a friendly message for an invalid regex instead of throwing", async () => {
+    const out = await grepTool.execute({ pattern: "(" }, { cwd: dir });
+    expect(out).toBe("Invalid regex: (");
+  });
 });

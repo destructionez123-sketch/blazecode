@@ -5,6 +5,7 @@ import type {
   StreamEvent,
 } from "./types.js";
 import { parseSSE } from "./sse.js";
+import { fetchWithRetry } from "./retry.js";
 
 /** Flatten one of our Messages into zero+ OpenAI chat messages. */
 function mapMessage(message: Message): Record<string, unknown>[] {
@@ -106,7 +107,7 @@ export const openaiProvider: Provider = {
     baseUrl: string,
     signal: AbortSignal,
   ): AsyncIterable<StreamEvent> {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
+    const res = await fetchWithRetry(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${key}`,

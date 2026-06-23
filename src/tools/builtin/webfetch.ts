@@ -19,14 +19,28 @@ export function htmlToText(html: string): string {
   return text.slice(0, MAX_CHARS);
 }
 
+/**
+ * Fetch a URL and return its content as plain text. Exposed as a standalone
+ * function so it can be unit-tested with an injected fetch implementation.
+ */
+export async function fetchUrlAsText(
+  url: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  const res = await fetchImpl(url);
+  if (!res.ok) {
+    return `Fetch failed: HTTP ${res.status}`;
+  }
+  const body = await res.text();
+  return htmlToText(body) || "(no content)";
+}
+
 export const webfetchTool: Tool<z.infer<typeof schema>> = {
   name: "webfetch",
   description: "Fetch a URL and return its content as plain text.",
   schema,
   permission: "none",
   async execute({ url }) {
-    const res = await fetch(url);
-    const body = await res.text();
-    return htmlToText(body) || "(no content)";
+    return fetchUrlAsText(url);
   },
 };

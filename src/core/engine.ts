@@ -93,7 +93,7 @@ export function createEngine(deps: EngineDeps): {
             break;
           case "error":
             errored = true;
-            bus.emit({ type: "error", message: ev.message });
+            bus.emit({ type: "error", message: ev.message, status: ev.status });
             break;
         }
       }

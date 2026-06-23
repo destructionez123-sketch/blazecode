@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { htmlToText } from "./webfetch.js";
+import { htmlToText, fetchUrlAsText } from "./webfetch.js";
 
 describe("htmlToText", () => {
   it("strips script blocks", () => {
@@ -27,5 +27,21 @@ describe("htmlToText", () => {
     const big = "<p>" + "a".repeat(100000) + "</p>";
     const out = htmlToText(big);
     expect(out.length).toBeLessThanOrEqual(50000);
+  });
+});
+
+describe("fetchUrlAsText", () => {
+  it("returns a friendly error when the response is not ok", async () => {
+    const fakeFetch = (async () =>
+      new Response("not found", { status: 404 })) as unknown as typeof fetch;
+    const out = await fetchUrlAsText("http://x", fakeFetch);
+    expect(out).toBe("Fetch failed: HTTP 404");
+  });
+
+  it("returns stripped text for an ok response", async () => {
+    const fakeFetch = (async () =>
+      new Response("<p>hello</p>", { status: 200 })) as unknown as typeof fetch;
+    const out = await fetchUrlAsText("http://x", fakeFetch);
+    expect(out).toContain("hello");
   });
 });

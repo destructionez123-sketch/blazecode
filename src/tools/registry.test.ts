@@ -26,4 +26,32 @@ describe("tool registry", () => {
     expect(schema.description).toBe("echoes input");
     expect(schema.inputSchema).toMatchObject({ type: "object" });
   });
+
+  it("uses tool.jsonSchema as inputSchema when present (minus $schema)", () => {
+    const prebuilt = {
+      $schema: "http://json-schema.org/draft-07/schema#",
+      type: "object",
+      properties: { path: { type: "string" } },
+      required: ["path"],
+    };
+    const withJsonSchema: Tool = {
+      ...dummy,
+      name: "mcp__srv__read",
+      jsonSchema: prebuilt,
+    };
+    const schema = toolToSchema(withJsonSchema);
+    expect(schema.inputSchema).toEqual({
+      type: "object",
+      properties: { path: { type: "string" } },
+      required: ["path"],
+    });
+  });
+
+  it("falls back to deriving from zod when jsonSchema is absent", () => {
+    const schema = toolToSchema(dummy);
+    expect(schema.inputSchema).toMatchObject({
+      type: "object",
+      properties: { text: { type: "string" } },
+    });
+  });
 });

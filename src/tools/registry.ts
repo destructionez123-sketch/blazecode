@@ -3,10 +3,15 @@ import type { ToolSchema } from "../core/provider/types.js";
 import type { Tool } from "./tool.js";
 
 export function toolToSchema(tool: Tool): ToolSchema {
-  const json = zodToJsonSchema(tool.schema, { target: "openApi3" }) as Record<
-    string,
-    unknown
-  >;
+  let json: Record<string, unknown>;
+  if (tool.jsonSchema) {
+    json = { ...tool.jsonSchema };
+  } else {
+    json = zodToJsonSchema(tool.schema, { target: "openApi3" }) as Record<
+      string,
+      unknown
+    >;
+  }
   delete (json as any).$schema;
   return { name: tool.name, description: tool.description, inputSchema: json };
 }

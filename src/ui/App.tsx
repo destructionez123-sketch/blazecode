@@ -7,6 +7,7 @@ import { ThinkingPanel } from "./components/ThinkingPanel.js";
 import { PermissionPrompt } from "./components/PermissionPrompt.js";
 import { Input } from "./components/Input.js";
 import { Transcript, type TranscriptItem } from "./components/Transcript.js";
+import { parseSlash } from "../ui/slash.js";
 
 export interface AppPermissionRequest {
   tool: string;
@@ -22,6 +23,14 @@ export interface AppProps {
   onSubmit: (text: string) => void;
   permissionRequest?: AppPermissionRequest;
   thinkingCollapsed?: boolean;
+}
+
+/**
+ * Decide whether a submitted line should appear as a user transcript item.
+ * Slash commands (parseSlash !== null) are forwarded but never shown.
+ */
+export function shouldShowAsUser(text: string): boolean {
+  return parseSlash(text) === null;
 }
 
 export function App({
@@ -100,6 +109,14 @@ export function App({
     ? [...items, { kind: "assistant", text: liveText }]
     : items;
 
+  const handleSubmit = (text: string) => {
+    // Slash commands are forwarded as-is and never shown as a user line.
+    if (shouldShowAsUser(text)) {
+      setItems((prev) => [...prev, { kind: "user", text }]);
+    }
+    onSubmit(text);
+  };
+
   return (
     <Box flexDirection="column" height="100%">
       <Box flexGrow={1} flexDirection="column">
@@ -120,7 +137,7 @@ export function App({
         cwd={cwd}
         branch={branch}
       />
-      {permissionRequest ? null : <Input onSubmit={onSubmit} />}
+      {permissionRequest ? null : <Input onSubmit={handleSubmit} />}
     </Box>
   );
 }

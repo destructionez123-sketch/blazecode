@@ -67,6 +67,11 @@ export async function connectMcpServers(
             return stringifyMcpResult(res);
           },
         };
+        // The MCP tool's inputSchema is already a JSON Schema object; surface it
+        // so the model sees the real parameters instead of a generic object.
+        if (tool.inputSchema) {
+          bridged.jsonSchema = tool.inputSchema as Record<string, unknown>;
+        }
         registry.register(bridged);
       }
     } catch (err) {

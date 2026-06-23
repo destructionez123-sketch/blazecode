@@ -6,6 +6,7 @@ import type {
   StreamEvent,
 } from "./types.js";
 import { parseSSE } from "./sse.js";
+import { fetchWithRetry } from "./retry.js";
 
 /** Map one of our ContentBlocks to an Anthropic content block, or null to skip. */
 function mapContentBlock(block: ContentBlock): Record<string, unknown> | null {
@@ -122,7 +123,7 @@ export const anthropicProvider: Provider = {
     baseUrl: string,
     signal: AbortSignal,
   ): AsyncIterable<StreamEvent> {
-    const res = await fetch(`${baseUrl}/messages`, {
+    const res = await fetchWithRetry(`${baseUrl}/messages`, {
       method: "POST",
       headers: {
         "x-api-key": key,

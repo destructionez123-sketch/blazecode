@@ -18,7 +18,12 @@ export const grepTool: Tool<{ pattern: string; include?: string }> = {
   schema,
   permission: "none",
   async execute({ pattern, include }, ctx) {
-    const re = new RegExp(pattern);
+    let re: RegExp;
+    try {
+      re = new RegExp(pattern);
+    } catch {
+      return `Invalid regex: ${pattern}`;
+    }
     const includeMatch = include ? picomatch(include) : undefined;
     const results: string[] = [];
 
